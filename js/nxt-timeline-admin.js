@@ -46,6 +46,62 @@ jQuery(document).ready(function($) {
         $('input[name="nxt_timeline_options[path_dash_gap]"]').prop('disabled', !isDashed);
     });
 
+	// Media uploader for custom SVG
+	$('#upload_svg_button').on('click', function(e) {
+		e.preventDefault();
+		console.log('Upload button clicked'); // Debug log
+
+		var button = $(this);
+		var mediaUploader;
+
+		if (mediaUploader) {
+			mediaUploader.open();
+			return;
+		}
+
+		mediaUploader = wp.media({
+			title: button.data('title') || 'Choose SVG',
+			button: {
+				text: button.data('button-text') || 'Use this SVG'
+			},
+			multiple: false,
+			library: {
+				type: 'image/svg+xml'
+			}
+		});
+
+		mediaUploader.on('select', function() {
+			var attachment = mediaUploader.state().get('selection').first().toJSON();
+			console.log('Selected attachment:', attachment); // Debug log
+			$('#custom_svg_id').val(attachment.id);
+			$('#custom_svg_url').val(attachment.url);
+			$('#remove_svg').show();
+		});
+
+		mediaUploader.open();
+	});
+
+	$('#remove_svg').on('click', function() {
+		console.log('Remove button clicked'); // Debug log
+		$('#custom_svg_id').val('');
+		$('#custom_svg_url').val('');
+		$(this).hide();
+	});
+    // Enable/disable scroll effect handler
+	$('input[name="nxt_timeline_options[enable_scroll_effect]"]').on('change', function() {
+        var isEnabled = $(this).is(':checked');
+        // You can add additional logic here if needed
+    });
+
+	// Scroll effect type change handler
+    $('#scroll_effect_type').on('change', function() {
+        var isCustom = $(this).val() === 'custom';
+        $('input[name="nxt_timeline_options[scroll_effect_custom_filter]"]').prop('disabled', !isCustom);
+    });
+
+    // Initial state for scroll effect type
+    $('#scroll_effect_type').trigger('change');
+
     // Initial state for path style
     $('#path_style').trigger('change');
 
@@ -58,4 +114,5 @@ jQuery(document).ready(function($) {
             $value.text(this.value);
         });
     });
+	console.log('nxt-timeline-admin.js loaded');
 });

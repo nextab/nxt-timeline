@@ -9,31 +9,52 @@ Text Domain: nxt-timeline
 */
 
 #region Enqueue Scripts in frontend
-add_action( 'wp_enqueue_scripts', 'nxt_timeline_enqueue_scripts', 999999);
 function nxt_timeline_enqueue_scripts() {
-	global $post;
-	if (strpos($post->post_content, 'svg-target') === false) return;
-	wp_register_script('timeline', plugin_dir_url(__FILE__) . 'js/timeline.js', false, '1.0', true);
-	
-	$options = get_option('nxt_timeline_options');
-	wp_localize_script('timeline', 'nxtTimelineOptions', $options);
-	
-	wp_enqueue_script('timeline');
+    global $post;
+    if (strpos($post->post_content, 'svg-target') === false) return;
+    wp_register_script('nxt-timeline', plugin_dir_url(__FILE__) . 'js/nxt-timeline.js', false, '1.0', true);
+    
+    $options = get_option('nxt_timeline_options');
+    // Ensure custom_svg_url is included in the options
+    if (!empty($options['custom_svg_id'])) {
+        $options['custom_svg_url'] = wp_get_attachment_url($options['custom_svg_id']);
+    }
+    wp_localize_script('nxt-timeline', 'nxtTimelineOptions', $options);
+    wp_enqueue_script('nxt-timeline');
 }
+add_action('wp_enqueue_scripts', 'nxt_timeline_enqueue_scripts', 999999);
 #endregion Enqueue Scripts in frontend
 
 #region Enqueue Scripts in WP backend
-function nxt_timeline_enqueue_color_picker($hook_suffix) {
+function nxt_timeline_enqueue_admin_scripts($hook_suffix) {
     if ('settings_page_nxt_timeline' !== $hook_suffix) {
         return;
     }
 
+    wp_enqueue_media();
     wp_enqueue_style('wp-color-picker');
     wp_enqueue_script('wp-color-picker');
-    wp_enqueue_script('nxt-timeline-color-picker', plugin_dir_url(__FILE__) . 'js/nxt-timeline-color-picker.js', array('jquery', 'wp-color-picker'), '1.0.0', true);
-	wp_enqueue_script('nxt-timeline-admin', plugin_dir_url(__FILE__) . 'js/nxt-timeline-admin.js', array('jquery'), '1.0.0', true);
+
+    $plugin_dir = plugin_dir_path(__FILE__);
+    $plugin_url = plugin_dir_url(__FILE__);
+
+    wp_enqueue_script(
+        'nxt-timeline-color-picker', 
+        $plugin_url . 'js/nxt-timeline-color-picker.js', 
+        array('jquery', 'wp-color-picker'), 
+        filemtime($plugin_dir . 'js/nxt-timeline-color-picker.js'), 
+        true
+    );
+
+    wp_enqueue_script(
+        'nxt-timeline-admin', 
+        $plugin_url . 'js/nxt-timeline-admin.js', 
+        array('jquery', 'wp-color-picker', 'media-upload', 'thickbox'), 
+        filemtime($plugin_dir . 'js/nxt-timeline-admin.js'), 
+        true
+    );
 }
-add_action('admin_enqueue_scripts', 'nxt_timeline_enqueue_color_picker');
+add_action('admin_enqueue_scripts', 'nxt_timeline_enqueue_admin_scripts');
 #endregion Enqueue Scripts in WP backend
 
 #region Admin Page WP
@@ -113,6 +134,53 @@ function nxt_timeline_settings_init() {
         'nxt_timeline',
         'nxt_timeline_stops_section'
     );
+
+	add_settings_section(
+        'nxt_timeline_scroll_handler_section',
+        'Scroll Effects',
+        'nxt_timeline_scroll_handler_section_callback',
+        'nxt_timeline'
+    );
+
+	add_settings_field(
+		'enable_scroll_effect',
+		'Enable Scroll Effect',
+		'nxt_timeline_enable_scroll_effect_render',
+		'nxt_timeline',
+		'nxt_timeline_scroll_handler_section'
+	);
+
+	add_settings_field(
+		'scroll_effect_type',
+		'Scroll Effect Type',
+		'nxt_timeline_scroll_effect_type_render',
+		'nxt_timeline',
+		'nxt_timeline_scroll_handler_section'
+	);
+	
+	add_settings_field(
+		'scroll_effect_transition',
+		'Scroll Effect Transition (ms)',
+		'nxt_timeline_scroll_effect_transition_render',
+		'nxt_timeline',
+		'nxt_timeline_scroll_handler_section'
+	);
+	
+	add_settings_field(
+		'scroll_effect_custom_filter',
+		'Custom CSS Filter',
+		'nxt_timeline_scroll_effect_custom_filter_render',
+		'nxt_timeline',
+		'nxt_timeline_scroll_handler_section'
+	);
+
+	add_settings_field(
+		'invert_scroll_effect',
+		'Invert Scroll Effect',
+		'nxt_timeline_invert_scroll_effect_render',
+		'nxt_timeline',
+		'nxt_timeline_scroll_handler_section'
+	);
 
     // Timeline Path Section
     add_settings_section(
@@ -233,10 +301,23 @@ function nxt_timeline_sanitize_options($options) {
 	if (isset($options['custom_svg'])) {
 		$options['custom_svg'] = esc_url_raw($options['custom_svg']);
     }
+	if (isset($options['custom_svg_id'])) {
+        $options['custom_svg_id'] = absint($options['custom_svg_id']);
+        $options['custom_svg_url'] = wp_get_attachment_url($options['custom_svg_id']);
+    } else {
+        $options['custom_svg_id'] = '';
+        $options['custom_svg_url'] = '';
+    }
 	if (isset($options['custom_svg_width'])) {
         $options['custom_svg_width'] = absint($options['custom_svg_width']);
     }
 	
+	$options['enable_scroll_effect'] = isset($options['enable_scroll_effect']) ? (bool) $options['enable_scroll_effect'] : false;
+	$options['scroll_effect_type'] = isset($options['scroll_effect_type']) ? sanitize_text_field($options['scroll_effect_type']) : 'opacity';
+    $options['scroll_effect_transition'] = isset($options['scroll_effect_transition']) ? absint($options['scroll_effect_transition']) : 300;
+    $options['scroll_effect_custom_filter'] = isset($options['scroll_effect_custom_filter']) ? sanitize_text_field($options['scroll_effect_custom_filter']) : '';
+	$options['invert_scroll_effect'] = isset($options['invert_scroll_effect']) ? (bool) $options['invert_scroll_effect'] : false;
+
     return $options;
 }
 #endregion Sanitization
@@ -255,6 +336,10 @@ function nxt_timeline_color_section_callback() {
 
 function nxt_timeline_shape_section_callback() {
 	echo '<p>Customize the shape of the timeline path.</p>';
+}
+
+function nxt_timeline_scroll_handler_section_callback() {
+	echo '<p>Customize the scroll effect of the timeline stops.</p>';
 }
 #endregion Settings for Admin Page
 
@@ -288,16 +373,16 @@ function nxt_timeline_element_type_render() {
 
 function nxt_timeline_custom_svg_render() {
     $options = get_option('nxt_timeline_options');
-    $custom_svg = isset($options['custom_svg']) ? $options['custom_svg'] : '';
+    $custom_svg_id = isset($options['custom_svg_id']) ? $options['custom_svg_id'] : '';
+    $custom_svg_url = $custom_svg_id ? wp_get_attachment_url($custom_svg_id) : '';
     ?>
     <div id="custom_svg_row" class="nxt-timeline-row">
-        <input type="file" name="custom_svg_upload" accept=".svg">
-        <input type="hidden" name="nxt_timeline_options[custom_svg]" value="<?php echo esc_attr($custom_svg); ?>">
-        <?php
-        if (!empty($custom_svg)) {
-            echo '<p>Current SVG: ' . esc_html(basename($custom_svg)) . ' <button type="button" class="button" id="remove_svg">Remove</button></p>';
-        }
-        ?>
+        <input type="hidden" name="nxt_timeline_options[custom_svg_id]" id="custom_svg_id" value="<?php echo esc_attr($custom_svg_id); ?>">
+        <input type="text" id="custom_svg_url" value="<?php echo esc_url($custom_svg_url); ?>" readonly>
+        <button type="button" class="button" id="upload_svg_button" data-title="Choose SVG" data-button-text="Use this SVG">Select SVG</button>
+        <?php if (!empty($custom_svg_url)) : ?>
+            <button type="button" class="button" id="remove_svg">Remove</button>
+        <?php endif; ?>
     </div>
     <?php
 }
@@ -333,6 +418,59 @@ function nxt_timeline_element_stroke_width_render() {
     <div id="element_stroke_width_row" class="nxt-timeline-row">
         <input type='number' name='nxt_timeline_options[element_stroke_width]' value='<?php echo $options['element_stroke_width'] ?? 4; ?>'>
     </div>
+    <?php
+}
+
+function nxt_timeline_enable_scroll_effect_render() {
+    $options = get_option('nxt_timeline_options');
+    $enable_scroll_effect = isset($options['enable_scroll_effect']) ? $options['enable_scroll_effect'] : false;
+    ?>
+    <input type='checkbox' name='nxt_timeline_options[enable_scroll_effect]' <?php checked($enable_scroll_effect, true); ?> value='1'>
+    <label for='nxt_timeline_options[enable_scroll_effect]'>Apply effect to timeline stops after scrolling past</label>
+    <?php
+}
+
+function nxt_timeline_scroll_effect_type_render() {
+    $options = get_option('nxt_timeline_options');
+    $effect_type = isset($options['scroll_effect_type']) ? $options['scroll_effect_type'] : 'opacity';
+    ?>
+    <select name='nxt_timeline_options[scroll_effect_type]' id='scroll_effect_type'>
+        <option value='opacity' <?php selected($effect_type, 'opacity'); ?>>Opacity</option>
+        <option value='invert' <?php selected($effect_type, 'invert'); ?>>Invert Color (circles and rectangles only)</option>
+        <option value='grayscale' <?php selected($effect_type, 'grayscale'); ?>>Grayscale</option>
+        <option value='custom' <?php selected($effect_type, 'custom'); ?>>Custom CSS Filter</option>
+    </select>
+    <?php
+}
+
+function nxt_timeline_scroll_effect_transition_render() {
+    $options = get_option('nxt_timeline_options');
+    $transition = isset($options['scroll_effect_transition']) ? $options['scroll_effect_transition'] : 300;
+    ?>
+    <input type='number' name='nxt_timeline_options[scroll_effect_transition]' value='<?php echo esc_attr($transition); ?>' min='0'>
+    <p class="description">Transition duration in milliseconds</p>
+    <?php
+}
+
+function nxt_timeline_scroll_effect_custom_filter_render() {
+    $options = get_option('nxt_timeline_options');
+    $custom_filter = isset($options['scroll_effect_custom_filter']) ? $options['scroll_effect_custom_filter'] : '';
+    ?>
+    <input type='text' name='nxt_timeline_options[scroll_effect_custom_filter]' value='<?php echo esc_attr($custom_filter); ?>' placeholder='e.g., blur(5px) or hue-rotate(180deg)'>
+    <p class="description">
+        Enter a valid CSS filter value. This will only be used if 'Custom CSS Filter' is selected as the effect type. 
+        For color shifts, try combinations like 'sepia(100%) hue-rotate(180deg)' for a blue tint, 
+        or 'sepia(100%) saturate(300%) brightness(70%) hue-rotate(180deg)' for a strong blue effect.
+    </p>
+    <?php
+}
+
+function nxt_timeline_invert_scroll_effect_render() {
+    $options = get_option('nxt_timeline_options');
+    $invert_scroll_effect = isset($options['invert_scroll_effect']) ? $options['invert_scroll_effect'] : false;
+    ?>
+    <input type='checkbox' name='nxt_timeline_options[invert_scroll_effect]' <?php checked($invert_scroll_effect, true); ?> value='1'>
+    <label for='nxt_timeline_options[invert_scroll_effect]'>Invert scroll effect (apply effect first, remove when scrolled past)</label>
     <?php
 }
 
