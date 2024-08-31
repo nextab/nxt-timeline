@@ -178,7 +178,39 @@ function createSvgPathDot() {
         const yPos = y + window.scrollY + offsetY;
 
         let element;
-        if (nxtTimelineOptions.element_type === 'square') {
+        if (nxtTimelineOptions.element_type === 'custom' && nxtTimelineOptions.custom_svg) {
+            element = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            element.setAttribute("transform", `translate(${xPos}, ${yPos})`);
+            
+            fetch(nxtTimelineOptions.custom_svg)
+                .then(response => response.text())
+                .then(svgContent => {
+                    const parser = new DOMParser();
+                    const svgDoc = parser.parseFromString(svgContent, "image/svg+xml");
+                    const svgElement = svgDoc.documentElement;
+                    
+                    // Get the original viewBox
+                    const viewBox = svgElement.getAttribute('viewBox');
+                    const [, , vbWidth, vbHeight] = viewBox ? viewBox.split(' ').map(Number) : [0, 0, 100, 100];
+                    
+                    // Calculate the aspect ratio
+                    const aspectRatio = vbWidth / vbHeight;
+                    
+                    // Set the width and calculate the height
+                    const width = parseInt(nxtTimelineOptions.custom_svg_width) || 20;
+                    const height = width / aspectRatio;
+                    
+                    // Set the new size
+                    svgElement.setAttribute('width', width);
+                    svgElement.setAttribute('height', height);
+                    
+                    // Adjust the position to center the SVG
+                    element.setAttribute("transform", `translate(${xPos - width/2}, ${yPos - height/2})`);
+                    
+                    element.appendChild(svgElement);
+                })
+                .catch(error => console.error('Error loading custom SVG:', error));
+        } else if (nxtTimelineOptions.element_type === 'square') {
             element = document.createElementNS("http://www.w3.org/2000/svg", "rect");
             element.setAttribute("x", xPos - 5);
             element.setAttribute("y", yPos - 5);
@@ -191,9 +223,12 @@ function createSvgPathDot() {
             element.setAttribute("r", 5);
         }
 
-        element.setAttribute("fill", getColorValue('element_fill_color') || "#ffffff");
-        element.setAttribute("stroke", getColorValue('element_stroke_color') || "#6c1300");
-        element.setAttribute("stroke-width", nxtTimelineOptions.element_stroke_width || "4");
+        if (nxtTimelineOptions.element_type !== 'custom') {
+            element.setAttribute("fill", getColorValue('element_fill_color') || "#ffffff");
+            element.setAttribute("stroke", getColorValue('element_stroke_color') || "#6c1300");
+            element.setAttribute("stroke-width", nxtTimelineOptions.element_stroke_width || "4");
+        }
+
         svg.appendChild(element);
     });
 }
