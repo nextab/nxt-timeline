@@ -1,6 +1,9 @@
 # Animated Timeline for WordPress
 A lightweight WordPress plugin that creates an elegant animated SVG timeline that responds to scroll position.
 
+**Showcase / Installation: German**
+[![Showcase](https://img.youtube.com/vi/RRZYlECIz6w/0.jpg)](https://www.youtube.com/watch?v=RRZYlECIz6w)
+
 # Features
 - Scroll-triggered timeline progression
 - Customizable
