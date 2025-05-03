@@ -45,6 +45,18 @@ window.addEventListener("resize", () => {
     createSvgPathStop();
 });
 
+let resizeTimeout;
+const bodyResizeObserver = new ResizeObserver(() => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        svg.innerHTML = ""; // Clear previous SVG content
+        createSvgPath();
+        createSvgPathStop();
+    }, 250); // 250ms debounce delay
+});
+
+bodyResizeObserver.observe(document.body);
+
 document.addEventListener("click", (event) => {
     if (event.target.classList.contains("toc-toggle-icon")) {
         setTimeout(function () {
