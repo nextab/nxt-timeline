@@ -30,32 +30,42 @@ function createSvgBackground() {
 
 const svgTargets = document.querySelectorAll(".svg-target");
 const offsetX = nxtTimelineOptions.offset_x ? parseInt(nxtTimelineOptions.offset_x) : 40;
-const offsetY = nxtTimelineOptions.offset_y ? parseInt(nxtTimelineOptions.offset_y) : 20;
 
-window.onload = function () {
-    setTimeout(function () {
-        createSvgPath();
-        createSvgPathStop();
-    }, 500);
-};
+// Function to calculate offsetY based on viewport width
+function getOffsetY() {
+	const adminOffsetY = nxtTimelineOptions.offset_y ? parseInt(nxtTimelineOptions.offset_y) : 20;
+	return adminOffsetY;
+	// return window.innerWidth > 980 ? (adminOffsetY + 45) : adminOffsetY;
+}
 
-window.addEventListener("resize", () => {
+// Initial offsetY
+let offsetY = getOffsetY();
+
+// Function to update SVG path
+function updateSvgPath() {
     svg.innerHTML = ""; // Clear previous SVG content
     createSvgPath();
     createSvgPathStop();
-});
+}
 
+// Handle window resize
 let resizeTimeout;
 const bodyResizeObserver = new ResizeObserver(() => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-        svg.innerHTML = ""; // Clear previous SVG content
-        createSvgPath();
-        createSvgPathStop();
+        offsetY = getOffsetY();
+		updateSvgPath();
     }, 250); // 250ms debounce delay
 });
 
 bodyResizeObserver.observe(document.body);
+
+// Initial setup
+window.onload = function () {
+    setTimeout(function () {
+        updateSvgPath();
+    }, 500);
+};
 
 document.addEventListener("click", (event) => {
     if (event.target.classList.contains("toc-toggle-icon")) {
