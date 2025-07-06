@@ -1,0 +1,27 @@
+.nxt-timeline-row.disabled {
+	opacity: 0.5;
+	pointer-events: none;
+}
+
+.manual-enqueue-option {
+	opacity: 0.5;
+	pointer-events: none;
+}
+
+.manual-enqueue-option.enabled {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+#posts_selector, #pages_selector {
+	background: #f9f9f9;
+}
+
+#posts_selector label, #pages_selector label {
+	display: block;
+	margin: 5px 0;
+}
+
+#posts_selector input, #pages_selector input {
+	margin-right: 5px;
+} 
