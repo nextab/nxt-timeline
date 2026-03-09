@@ -111,6 +111,14 @@ function nxt_timeline_settings_init() {
 	);
 
 	add_settings_field(
+		'target_selector',
+		'Target CSS Selector',
+		'nxt_timeline_target_selector_render',
+		'nxt_timeline',
+		'nxt_timeline_stops_section'
+	);
+
+	add_settings_field(
 		'element_type',
 		'Element Type',
 		'nxt_timeline_element_type_render',
@@ -333,6 +341,18 @@ function nxt_timeline_sanitize_options($options) {
 	$options['enqueue_all_archives'] = isset($options['enqueue_all_archives']) ? (bool) $options['enqueue_all_archives'] : false;
 	$options['enqueue_specific_posts'] = isset($options['enqueue_specific_posts']) ? sanitize_text_field($options['enqueue_specific_posts']) : '';
 	$options['enqueue_specific_pages'] = isset($options['enqueue_specific_pages']) ? sanitize_text_field($options['enqueue_specific_pages']) : '';
+	
+	if (isset($options['target_selector'])) {
+		$options['target_selector'] = sanitize_text_field($options['target_selector']);
+	} else {
+		$options['target_selector'] = '.svg-target';
+	}
+	
+	// Backward compatibility: if old target_class exists, convert it
+	if (isset($options['target_class']) && !isset($options['target_selector'])) {
+		$options['target_selector'] = '.' . ltrim($options['target_class'], '.');
+		unset($options['target_class']);
+	}
 
 	return $options;
 }
@@ -438,6 +458,17 @@ function nxt_timeline_offset_y_render() {
 	$options = get_option('nxt_timeline_options');
 	?>
 	<input type='number' name='nxt_timeline_options[offset_y]' value='<?php echo $options['offset_y'] ?? 20; ?>'>
+	<?php
+}
+
+function nxt_timeline_target_selector_render() {
+	$options = get_option('nxt_timeline_options');
+	$target_selector = isset($options['target_selector']) ? $options['target_selector'] : '.svg-target';
+	?>
+	<div class="nxt-timeline-row">
+		<input type='text' name='nxt_timeline_options[target_selector]' value='<?php echo esc_attr($target_selector); ?>' placeholder='.svg-target' class="regular-text">
+		<p class="description">CSS-Selektor der Elemente, an denen sich die Timeline ausrichten soll (Standard: .svg-target). Beispiele: ".svg-target", ".svg-target .et_pb_module_header", "#my-timeline-stop", etc.</p>
+	</div>
 	<?php
 }
 
@@ -674,15 +705,32 @@ function nxt_timeline_color_type_render($args) {
 #region Create the options page
 function nxt_timeline_options_page() {
 	?>
-	<div class="wrap">
-		<h1>Animated Timeline Settings</h1>
-		<form action='options.php' method='post' enctype="multipart/form-data">
-			<?php
-			settings_fields('nxt_timeline');
-			do_settings_sections('nxt_timeline');
-			submit_button();
-			?>
-		</form>
+	<div class="wrap nxt-admin-wrap">
+		<div class="nxt-admin-header">
+			<div class="nxt-admin-header-content">
+				<h1>
+					<span class="dashicons dashicons-clock"></span>
+					<?php echo esc_html__('Animated Timeline Settings', 'nxt-timeline'); ?>
+				</h1>
+				<p class="nxt-admin-subtitle"><?php echo esc_html__('Konfiguriere deine animierte Timeline mit SVG und JavaScript', 'nxt-timeline'); ?></p>
+			</div>
+		</div>
+		
+		<div class="nxt-tab-content">
+			<div class="nxt-admin-card">
+				<div class="nxt-card-header">
+					<h2><span class="dashicons dashicons-admin-settings"></span> <?php echo esc_html__('Timeline Einstellungen', 'nxt-timeline'); ?></h2>
+					<p class="nxt-card-description"><?php echo esc_html__('Passe die Timeline-Konfiguration an deine Bedürfnisse an', 'nxt-timeline'); ?></p>
+				</div>
+				<form action='options.php' method='post' enctype="multipart/form-data">
+					<?php
+					settings_fields('nxt_timeline');
+					do_settings_sections('nxt_timeline');
+					submit_button();
+					?>
+				</form>
+			</div>
+		</div>
 	</div>
 	<?php
 }

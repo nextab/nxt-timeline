@@ -27,6 +27,9 @@ body {
 3. Navigate to Settings → Animated Timeline to configure appearance
 4. Add the svg-target class to elements you want to connect in your timeline
 
+# Per-Page Selector Override
+If different pages require a different CSS selector to target timeline elements, you can override the global selector on a per-page basis. Open the page in the Gutenberg editor and find the **Timeline Selector** panel in the Document Settings sidebar (right side). Enter a custom CSS selector there — it takes precedence over the global setting. Leave it empty to fall back to the global selector.
+
 # Usage
 ### Basic Implementation
 ```html

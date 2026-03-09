@@ -2,7 +2,7 @@
 /*
 Plugin Name: Animated Timeline
 Description: Creates an animated timeline with SVG and JavaScript
-Version: 1.0
+Version: 1.2
 Author: nexTab & Unleashed Design
 Author URI: https://nextab.de
 Text Domain: nxt-timeline
@@ -12,15 +12,22 @@ Text Domain: nxt-timeline
 function nxt_timeline_enqueue_scripts() {
     global $post;
     
-    // Check if we should enqueue based on manual settings
     if (nxt_timeline_should_enqueue()) {
-        wp_register_script('nxt-timeline', plugin_dir_url(__FILE__) . 'js/nxt-timeline.js', false, '1.0', true);
+        wp_register_script('nxt-timeline', plugin_dir_url(__FILE__) . 'js/nxt-timeline.js', false, filemtime(plugin_dir_path(__FILE__) . 'js/nxt-timeline.js'), true);
         
         $options = get_option('nxt_timeline_options');
-        // Ensure custom_svg_url is included in the options
         if (!empty($options['custom_svg_id'])) {
             $options['custom_svg_url'] = wp_get_attachment_url($options['custom_svg_id']);
         }
+
+        // Per-page selector override
+        if ($post) {
+            $page_selector = get_post_meta($post->ID, '_nxt_timeline_selector', true);
+            if (!empty($page_selector)) {
+                $options['target_selector'] = $page_selector;
+            }
+        }
+
         wp_localize_script('nxt-timeline', 'nxtTimelineOptions', $options);
         wp_enqueue_script('nxt-timeline');
     }
@@ -50,16 +57,16 @@ function nxt_timeline_should_enqueue() {
         
         // Check for specific posts
         if (!empty($options['enqueue_specific_posts']) && is_single()) {
-            $specific_posts = array_map('trim', explode(',', $options['enqueue_specific_posts']));
-            if (in_array($post->ID, $specific_posts)) {
+            $specific_posts = array_map('intval', array_map('trim', explode(',', $options['enqueue_specific_posts'])));
+            if (in_array($post->ID, $specific_posts, true)) {
                 return true;
             }
         }
         
         // Check for specific pages
         if (!empty($options['enqueue_specific_pages']) && is_page()) {
-            $specific_pages = array_map('trim', explode(',', $options['enqueue_specific_pages']));
-            if (in_array($post->ID, $specific_pages)) {
+            $specific_pages = array_map('intval', array_map('trim', explode(',', $options['enqueue_specific_pages'])));
+            if (in_array($post->ID, $specific_pages, true)) {
                 return true;
             }
         }
@@ -70,7 +77,17 @@ function nxt_timeline_should_enqueue() {
     
     // Fall back to original content-based detection
     if (!$post) return false;
-    return (strpos($post->post_content, 'svg-target') !== false);
+    $target_selector = isset($options['target_selector']) ? $options['target_selector'] : '.svg-target';
+    // Extract class name from selector for content detection (remove dots, spaces, etc.)
+    $target_class = preg_replace('/[^a-zA-Z0-9_-]/', '', $target_selector);
+    // Also check for old target_class for backward compatibility
+    if (empty($target_class) && isset($options['target_class'])) {
+        $target_class = $options['target_class'];
+    }
+    if (empty($target_class)) {
+        $target_class = 'svg-target';
+    }
+    return (strpos($post->post_content, $target_class) !== false);
 }
 #endregion Enqueue Scripts in frontend
 
@@ -132,4 +149,30 @@ add_action('admin_enqueue_scripts', 'nxt_timeline_enqueue_admin_scripts');
 // Include admin page functionality
 if (is_admin()) {
     require_once plugin_dir_path(__FILE__) . 'includes/admin-page.php';
-} 
+}
+
+#region Per-page selector meta field
+function nxt_timeline_register_meta() {
+    register_post_meta('', '_nxt_timeline_selector', [
+        'show_in_rest'  => true,
+        'single'        => true,
+        'type'          => 'string',
+        'auth_callback' => function() {
+            return current_user_can('edit_posts');
+        },
+        'sanitize_callback' => 'sanitize_text_field',
+    ]);
+}
+add_action('init', 'nxt_timeline_register_meta');
+
+function nxt_timeline_enqueue_block_editor_assets() {
+    wp_enqueue_script(
+        'nxt-timeline-meta-box',
+        plugin_dir_url(__FILE__) . 'js/nxt-timeline-meta-box.js',
+        ['wp-plugins', 'wp-edit-post', 'wp-editor', 'wp-components', 'wp-data', 'wp-element'],
+        filemtime(plugin_dir_path(__FILE__) . 'js/nxt-timeline-meta-box.js'),
+        true
+    );
+}
+add_action('enqueue_block_editor_assets', 'nxt_timeline_enqueue_block_editor_assets');
+#endregion Per-page selector meta field
