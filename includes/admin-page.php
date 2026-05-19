@@ -675,7 +675,7 @@ function nxt_timeline_path_curve_correct_last_y_render() {
 	$options = get_option('nxt_timeline_options');
 	$value = $options['path_curve_correct_last_y'] ?? 0;
 	?>
-	<input type='range' name='nxt_timeline_options[path_curve_correct_last_y]' min='-100' max='100' value='<?php echo $value; ?>'>
+	<input type='range' name='nxt_timeline_options[path_curve_correct_last_y]' min='-200' max='200' value='<?php echo $value; ?>'>
 	<span class="path_curve_correct_last_y_value"><?php echo $value; ?></span>
 	<?php
 }
